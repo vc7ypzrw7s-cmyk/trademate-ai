@@ -15,6 +15,11 @@
     },
     "android": {
       "package": "com.trademate.ai"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "74be843d-0e2a-4dad-bccd-ab6185bc8a91"
+      }
     }
   }
 }
