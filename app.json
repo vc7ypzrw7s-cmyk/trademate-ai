@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "TradeMate AI",
+    "slug": "trademate-ai",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0B0F1A",
+    "splash": {
+      "backgroundColor": "#0B0F1A"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.trademate.ai"
+    },
+    "android": {
+      "package": "com.trademate.ai"
+    }
+  }
+}
