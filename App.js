@@ -8,7 +8,10 @@ import {
   TextInput,
   StyleSheet,
   StatusBar,
+  Alert,
 } from 'react-native';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 
 // ---------- THEME ----------
 const COLORS = {
@@ -209,7 +212,7 @@ function DocFormScreen({ docKey, onGenerate, onBack }) {
   const set = (k) => (v) => setForm({ ...form, [k]: v });
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 20 }}>
+    <ScrollView contentContainerStyle={{ padding: 20 }} keyboardShouldPersistTaps="handled">
       <Header title={docType.formTitle} onBack={onBack} />
       <Text style={styles.sectionLabel}>Məlumatları daxil edin</Text>
       {docType.fields.map((f) => (
@@ -231,20 +234,75 @@ function DocFormScreen({ docKey, onGenerate, onBack }) {
   );
 }
 
+// ---------- PDF EXPORT ----------
+async function exportToPdf(text) {
+  const safeHtml = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\n/g, '<br/>');
+
+  const html = `
+    <html>
+      <body style="font-family: -apple-system, sans-serif; padding: 24px; font-size: 14px; line-height: 1.6; color: #111;">
+        ${safeHtml}
+      </body>
+    </html>
+  `;
+
+  try {
+    const { uri } = await Print.printToFileAsync({ html });
+    const canShare = await Sharing.isAvailableAsync();
+    if (canShare) {
+      await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: 'Sənədi paylaş / saxla' });
+    } else {
+      Alert.alert('PDF hazırdır', 'Fayl yaradıldı: ' + uri);
+    }
+  } catch (err) {
+    Alert.alert('Xəta', 'PDF yaradılarkən problem baş verdi: ' + err.message);
+  }
+}
+
 // ---------- DOCUMENT PREVIEW ----------
-function DocumentPreviewScreen({ text, onBack }) {
+function DocumentPreviewScreen({ text, onBack, onTextChange }) {
+  const [editing, setEditing] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    setExporting(true);
+    await exportToPdf(text);
+    setExporting(false);
+  };
+
   return (
-    <ScrollView contentContainerStyle={{ padding: 20 }}>
+    <ScrollView contentContainerStyle={{ padding: 20 }} keyboardShouldPersistTaps="handled">
       <Header title="Document Preview" onBack={onBack} />
       <View style={styles.previewBox}>
-        <Text style={styles.previewText}>{text}</Text>
+        {editing ? (
+          <TextInput
+            style={styles.previewEditInput}
+            value={text}
+            onChangeText={onTextChange}
+            multiline
+            textAlignVertical="top"
+          />
+        ) : (
+          <Text style={styles.previewText}>{text}</Text>
+        )}
       </View>
       <View style={{ flexDirection: 'row', marginTop: 16 }}>
-        <TouchableOpacity style={[styles.secondaryButton, { flex: 1, marginRight: 8 }]}>
-          <Text style={styles.secondaryButtonText}>✏️ Redaktə et</Text>
+        <TouchableOpacity
+          style={[styles.secondaryButton, { flex: 1, marginRight: 8 }]}
+          onPress={() => setEditing(!editing)}
+        >
+          <Text style={styles.secondaryButtonText}>{editing ? '✅ Hazırdır' : '✏️ Redaktə et'}</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.primaryButton, { flex: 1, marginLeft: 8 }]}>
-          <Text style={styles.primaryButtonText}>⬇️ PDF Yüklə</Text>
+        <TouchableOpacity
+          style={[styles.primaryButton, { flex: 1, marginLeft: 8 }]}
+          onPress={handleExport}
+          disabled={exporting}
+        >
+          <Text style={styles.primaryButtonText}>{exporting ? '⏳ Hazırlanır...' : '⬇️ PDF Yüklə'}</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -290,7 +348,7 @@ export default function App() {
   } else if (screen === 'docForm') {
     content = <DocFormScreen docKey={selectedDoc} onGenerate={handleGenerate} onBack={() => setScreen('createDoc')} />;
   } else if (screen === 'preview') {
-    content = <DocumentPreviewScreen text={docText} onBack={() => setScreen('docForm')} />;
+    content = <DocumentPreviewScreen text={docText} onTextChange={setDocText} onBack={() => setScreen('docForm')} />;
   }
 
   return (
@@ -374,6 +432,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff', borderRadius: 14, padding: 18, minHeight: 300,
   },
   previewText: { color: '#111', fontSize: 13, lineHeight: 20 },
+  previewEditInput: { color: '#111', fontSize: 13, lineHeight: 20, minHeight: 280, padding: 0 },
   tabBar: {
     flexDirection: 'row', borderTopWidth: 1, borderTopColor: COLORS.border,
     paddingVertical: 10, backgroundColor: COLORS.bg,
