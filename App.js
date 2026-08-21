@@ -124,6 +124,87 @@ const DOC_TYPES = {
   },
 };
 
+};
+
+// ---------- EMAIL TYPE CONFIG ----------
+const EMAIL_FIELDS = [
+  { key: 'recipientCompany', label: 'Alıcı şirkət', placeholder: 'Məs: ABC Trading LLC' },
+  { key: 'product', label: 'Mövzu / Məhsul', placeholder: 'Məs: Copper Cathodes' },
+  { key: 'details', label: 'Əlavə detallar', placeholder: 'Məs: 5,000 MT, CIF Dubai, 9,500 USD/MT' },
+  { key: 'senderName', label: 'Sizin adınız', placeholder: 'Məs: Terlan Amirkhanov' },
+];
+
+function buildEmail(subjectLine, bodyIntro, data) {
+  return `Subject: ${subjectLine}${data.product ? ' — ' + data.product : ''}
+
+Dear ${data.recipientCompany || 'Sir/Madam'},
+
+${bodyIntro}
+
+${data.details || ''}
+
+Best regards,
+${data.senderName || 'TradeMate Trading LLC'}`;
+}
+
+const EMAIL_TYPES = {
+  newOffer: {
+    title: 'New Offer',
+    formTitle: 'New Offer Email',
+    icon: '📤',
+    fields: EMAIL_FIELDS,
+    build: (data) => buildEmail(
+      'New Offer',
+      'We are pleased to present you with a new offer that we believe will be of great interest to your company.',
+      data
+    ),
+  },
+  followUp: {
+    title: 'Follow-up',
+    formTitle: 'Follow-up Email',
+    icon: '📧',
+    fields: EMAIL_FIELDS,
+    build: (data) => buildEmail(
+      'Following Up',
+      'I am writing to follow up on our previous correspondence and check on the current status.',
+      data
+    ),
+  },
+  negotiation: {
+    title: 'Negotiation',
+    formTitle: 'Negotiation Email',
+    icon: '🤝',
+    fields: EMAIL_FIELDS,
+    build: (data) => buildEmail(
+      'Regarding Terms',
+      'Thank you for your proposal. We would like to discuss the terms further to reach a mutually beneficial agreement.',
+      data
+    ),
+  },
+  complaint: {
+    title: 'Complaint',
+    formTitle: 'Complaint Email',
+    icon: '⚠️',
+    fields: EMAIL_FIELDS,
+    build: (data) => buildEmail(
+      'Regarding an Issue',
+      'We regret to inform you that we have encountered an issue that requires your urgent attention.',
+      data
+    ),
+  },
+  meetingRequest: {
+    title: 'Meeting Request',
+    formTitle: 'Meeting Request Email',
+    icon: '📅',
+    fields: EMAIL_FIELDS,
+    build: (data) => buildEmail(
+      'Meeting Request',
+      'We would like to schedule a meeting to discuss this matter in more detail at your earliest convenience.',
+      data
+    ),
+  },
+};
+
 // ---------- HOME SCREEN ----------
 function HomeScreen({ onNavigate }) {
   const tiles = [
@@ -309,6 +390,60 @@ function DocumentPreviewScreen({ text, onBack, onTextChange }) {
   );
 }
 
+// ---------- BUSINESS EMAIL (LIST) ----------
+function EmailListScreen({ onSelectEmail, onBack }) {
+  const keys = Object.keys(EMAIL_TYPES);
+  return (
+    <ScrollView contentContainerStyle={{ padding: 20 }}>
+      <Header title="Business Email" onBack={onBack} />
+      <Text style={styles.sectionLabel}>E-mail növünü seçin</Text>
+      {keys.map((k) => (
+        <TouchableOpacity
+          key={k}
+          style={styles.emailRow}
+          activeOpacity={0.7}
+          onPress={() => onSelectEmail(k)}
+        >
+          <View style={styles.emailIconWrap}>
+            <Text style={{ fontSize: 18 }}>{EMAIL_TYPES[k].icon}</Text>
+          </View>
+          <Text style={styles.listTitle}>{EMAIL_TYPES[k].title}</Text>
+          <Text style={{ color: COLORS.subtext, fontSize: 16, marginLeft: 'auto' }}>›</Text>
+        </TouchableOpacity>
+      ))}
+    </ScrollView>
+  );
+}
+
+// ---------- EMAIL FORM ----------
+function EmailFormScreen({ emailKey, onGenerate, onBack }) {
+  const emailType = EMAIL_TYPES[emailKey];
+  const [form, setForm] = useState({ recipientCompany: '', product: '', details: '', senderName: '' });
+  const set = (k) => (v) => setForm({ ...form, [k]: v });
+
+  return (
+    <ScrollView contentContainerStyle={{ padding: 20 }} keyboardShouldPersistTaps="handled">
+      <Header title={emailType.formTitle} onBack={onBack} />
+      <Text style={styles.sectionLabel}>Məlumatları daxil edin</Text>
+      {emailType.fields.map((f) => (
+        <View key={f.key} style={{ marginBottom: 14 }}>
+          <Text style={styles.inputLabel}>{f.label}</Text>
+          <TextInput
+            style={styles.input}
+            placeholder={f.placeholder}
+            placeholderTextColor={COLORS.subtext}
+            value={form[f.key]}
+            onChangeText={set(f.key)}
+          />
+        </View>
+      ))}
+      <TouchableOpacity style={styles.primaryButton} onPress={() => onGenerate(emailType.build(form))}>
+        <Text style={styles.primaryButtonText}>✨ E-maili yarat</Text>
+      </TouchableOpacity>
+    </ScrollView>
+  );
+}
+
 // ---------- SHARED HEADER ----------
 function Header({ title, onBack }) {
   return (
@@ -327,12 +462,18 @@ export default function App() {
   const [screen, setScreen] = useState('home');
   const [docText, setDocText] = useState('');
   const [selectedDoc, setSelectedDoc] = useState('loi');
+  const [selectedEmail, setSelectedEmail] = useState('newOffer');
 
   const goHome = () => setScreen('home');
 
   const handleSelectDoc = (docKey) => {
     setSelectedDoc(docKey);
     setScreen('docForm');
+  };
+
+  const handleSelectEmail = (emailKey) => {
+    setSelectedEmail(emailKey);
+    setScreen('emailForm');
   };
 
   const handleGenerate = (text) => {
@@ -342,13 +483,17 @@ export default function App() {
 
   let content;
   if (screen === 'home') {
-    content = <HomeScreen onNavigate={(key) => setScreen(key === 'createDoc' ? 'createDoc' : 'home')} />;
+    content = <HomeScreen onNavigate={(key) => setScreen(['createDoc', 'email'].includes(key) ? key : 'home')} />;
   } else if (screen === 'createDoc') {
     content = <CreateDocumentScreen onSelectDoc={handleSelectDoc} onBack={goHome} />;
   } else if (screen === 'docForm') {
     content = <DocFormScreen docKey={selectedDoc} onGenerate={handleGenerate} onBack={() => setScreen('createDoc')} />;
+  } else if (screen === 'email') {
+    content = <EmailListScreen onSelectEmail={handleSelectEmail} onBack={goHome} />;
+  } else if (screen === 'emailForm') {
+    content = <EmailFormScreen emailKey={selectedEmail} onGenerate={handleGenerate} onBack={() => setScreen('email')} />;
   } else if (screen === 'preview') {
-    content = <DocumentPreviewScreen text={docText} onTextChange={setDocText} onBack={() => setScreen('docForm')} />;
+    content = <DocumentPreviewScreen text={docText} onTextChange={setDocText} onBack={goHome} />;
   }
 
   return (
@@ -413,6 +558,15 @@ const styles = StyleSheet.create({
   },
   listTitle: { color: COLORS.text, fontSize: 15, fontWeight: '600' },
   listDesc: { color: COLORS.subtext, fontSize: 12, marginTop: 2 },
+  emailRow: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: COLORS.card, borderRadius: 14, padding: 16, marginBottom: 10,
+    borderWidth: 1, borderColor: COLORS.border,
+  },
+  emailIconWrap: {
+    width: 34, height: 34, borderRadius: 10, backgroundColor: COLORS.cardAlt,
+    alignItems: 'center', justifyContent: 'center', marginRight: 12,
+  },
   inputLabel: { color: COLORS.subtext, fontSize: 12, marginBottom: 6 },
   input: {
     backgroundColor: COLORS.card, borderRadius: 10, padding: 12,
