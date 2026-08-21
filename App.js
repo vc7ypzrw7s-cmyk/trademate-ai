@@ -24,10 +24,20 @@ const COLORS = {
   pink: '#EC4899',
 };
 
-// ---------- DOCUMENT TEMPLATES ----------
-function buildLOI(data) {
+// ---------- DOCUMENT TYPE CONFIG ----------
+const COMMON_FIELDS = [
+  { key: 'product', label: 'Product', placeholder: 'Məs: Copper Cathodes' },
+  { key: 'quantity', label: 'Quantity', placeholder: 'Məs: 5,000 MT' },
+  { key: 'price', label: 'Price', placeholder: 'Məs: 9,500 USD / MT' },
+  { key: 'delivery', label: 'Delivery Terms', placeholder: 'Məs: CIF' },
+  { key: 'destination', label: 'Destination', placeholder: 'Məs: Dubai, UAE' },
+  { key: 'payment', label: 'Payment Terms', placeholder: 'Məs: At sight / TT' },
+  { key: 'validUntil', label: 'Valid Until', placeholder: 'Məs: 31.12.2024' },
+];
+
+function buildGenericDoc(headerTitle, companyLine, data) {
   const today = new Date().toLocaleDateString('az-AZ');
-  return `COMMERCIAL OFFER
+  return `${headerTitle}
 Date: ${today}
 
 Product: ${data.product || '-'}
@@ -40,13 +50,76 @@ Valid Until: ${data.validUntil || '-'}
 
 Dear Sir/Madam,
 
-We, TradeMate Trading LLC, are pleased to submit our Commercial Offer for the supply of the following goods on the terms and conditions stated below.
+${companyLine}
 
 We look forward to your positive response.
 
 Best Regards,
 TradeMate Trading LLC`;
 }
+
+const DOC_TYPES = {
+  loi: {
+    title: 'LOI',
+    formTitle: 'LOI Generator',
+    fields: COMMON_FIELDS,
+    build: (data) => buildGenericDoc(
+      'LETTER OF INTENT',
+      'We, TradeMate Trading LLC, hereby express our intent to purchase the goods described below, subject to mutually agreed terms and conditions.',
+      data
+    ),
+  },
+  icpo: {
+    title: 'ICPO',
+    formTitle: 'ICPO Generator',
+    fields: COMMON_FIELDS,
+    build: (data) => buildGenericDoc(
+      'IRREVOCABLE CORPORATE PURCHASE ORDER',
+      'We, TradeMate Trading LLC, hereby issue this Irrevocable Corporate Purchase Order for the supply of the following goods on the terms and conditions stated below.',
+      data
+    ),
+  },
+  fco: {
+    title: 'FCO',
+    formTitle: 'FCO Generator',
+    fields: COMMON_FIELDS,
+    build: (data) => buildGenericDoc(
+      'FULL CORPORATE OFFER',
+      'We, TradeMate Trading LLC, are pleased to submit our Full Corporate Offer for the supply of the following goods on the terms and conditions stated below.',
+      data
+    ),
+  },
+  offer: {
+    title: 'Commercial Offer',
+    formTitle: 'Commercial Offer Generator',
+    fields: COMMON_FIELDS,
+    build: (data) => buildGenericDoc(
+      'COMMERCIAL OFFER',
+      'We, TradeMate Trading LLC, are pleased to submit our Commercial Offer for the supply of the following goods on the terms and conditions stated below.',
+      data
+    ),
+  },
+  po: {
+    title: 'Purchase Order',
+    formTitle: 'Purchase Order Generator',
+    fields: COMMON_FIELDS,
+    build: (data) => buildGenericDoc(
+      'PURCHASE ORDER',
+      'We, TradeMate Trading LLC, hereby place this Purchase Order for the supply of the following goods on the terms and conditions stated below.',
+      data
+    ),
+  },
+  contract: {
+    title: 'Business Contract',
+    formTitle: 'Business Contract Generator',
+    fields: COMMON_FIELDS,
+    build: (data) => buildGenericDoc(
+      'BUSINESS CONTRACT AGREEMENT',
+      'This Business Contract Agreement is entered into between TradeMate Trading LLC and the counterparty for the supply of the following goods on the terms and conditions stated below.',
+      data
+    ),
+  },
+};
 
 // ---------- HOME SCREEN ----------
 function HomeScreen({ onNavigate }) {
@@ -99,14 +172,14 @@ function HomeScreen({ onNavigate }) {
 }
 
 // ---------- CREATE DOCUMENT (LIST) ----------
-function CreateDocumentScreen({ onNavigate, onBack }) {
+function CreateDocumentScreen({ onSelectDoc, onBack }) {
   const docs = [
-    { key: 'loi', title: 'LOI', desc: 'Letter of Intent' },
-    { key: 'icpo', title: 'ICPO', desc: 'Irrevocable Corporate Purchase Order' },
-    { key: 'fco', title: 'FCO', desc: 'Full Corporate Offer' },
-    { key: 'offer', title: 'Commercial Offer', desc: 'Sales Offer' },
-    { key: 'po', title: 'Purchase Order', desc: 'Purchase Order' },
-    { key: 'contract', title: 'Business Contract', desc: 'Contract Agreement' },
+    { key: 'loi', desc: 'Letter of Intent' },
+    { key: 'icpo', desc: 'Irrevocable Corporate Purchase Order' },
+    { key: 'fco', desc: 'Full Corporate Offer' },
+    { key: 'offer', desc: 'Sales Offer' },
+    { key: 'po', desc: 'Purchase Order' },
+    { key: 'contract', desc: 'Contract Agreement' },
   ];
   return (
     <ScrollView contentContainerStyle={{ padding: 20 }}>
@@ -117,9 +190,9 @@ function CreateDocumentScreen({ onNavigate, onBack }) {
           key={d.key}
           style={styles.listRow}
           activeOpacity={0.7}
-          onPress={() => onNavigate(d.key === 'loi' ? 'loiForm' : 'createDoc')}
+          onPress={() => onSelectDoc(d.key)}
         >
-          <Text style={styles.listTitle}>{d.title}</Text>
+          <Text style={styles.listTitle}>{DOC_TYPES[d.key].title}</Text>
           <Text style={styles.listDesc}>{d.desc}</Text>
         </TouchableOpacity>
       ))}
@@ -127,28 +200,19 @@ function CreateDocumentScreen({ onNavigate, onBack }) {
   );
 }
 
-// ---------- LOI FORM ----------
-function LoiFormScreen({ onGenerate, onBack }) {
+// ---------- GENERIC DOCUMENT FORM ----------
+function DocFormScreen({ docKey, onGenerate, onBack }) {
+  const docType = DOC_TYPES[docKey];
   const [form, setForm] = useState({
     product: '', quantity: '', price: '', delivery: '', destination: '', payment: '', validUntil: '',
   });
   const set = (k) => (v) => setForm({ ...form, [k]: v });
 
-  const fields = [
-    { key: 'product', label: 'Product', placeholder: 'Məs: Copper Cathodes' },
-    { key: 'quantity', label: 'Quantity', placeholder: 'Məs: 5,000 MT' },
-    { key: 'price', label: 'Price', placeholder: 'Məs: 9,500 USD / MT' },
-    { key: 'delivery', label: 'Delivery Terms', placeholder: 'Məs: CIF' },
-    { key: 'destination', label: 'Destination', placeholder: 'Məs: Dubai, UAE' },
-    { key: 'payment', label: 'Payment Terms', placeholder: 'Məs: At sight / TT' },
-    { key: 'validUntil', label: 'Valid Until', placeholder: 'Məs: 31.12.2024' },
-  ];
-
   return (
     <ScrollView contentContainerStyle={{ padding: 20 }}>
-      <Header title="LOI Generator" onBack={onBack} />
+      <Header title={docType.formTitle} onBack={onBack} />
       <Text style={styles.sectionLabel}>Məlumatları daxil edin</Text>
-      {fields.map((f) => (
+      {docType.fields.map((f) => (
         <View key={f.key} style={{ marginBottom: 14 }}>
           <Text style={styles.inputLabel}>{f.label}</Text>
           <TextInput
@@ -160,7 +224,7 @@ function LoiFormScreen({ onGenerate, onBack }) {
           />
         </View>
       ))}
-      <TouchableOpacity style={styles.primaryButton} onPress={() => onGenerate(form)}>
+      <TouchableOpacity style={styles.primaryButton} onPress={() => onGenerate(docType.build(form))}>
         <Text style={styles.primaryButtonText}>✨ Sənədi yarat</Text>
       </TouchableOpacity>
     </ScrollView>
@@ -204,11 +268,17 @@ function Header({ title, onBack }) {
 export default function App() {
   const [screen, setScreen] = useState('home');
   const [docText, setDocText] = useState('');
+  const [selectedDoc, setSelectedDoc] = useState('loi');
 
   const goHome = () => setScreen('home');
 
-  const handleGenerate = (form) => {
-    setDocText(buildLOI(form));
+  const handleSelectDoc = (docKey) => {
+    setSelectedDoc(docKey);
+    setScreen('docForm');
+  };
+
+  const handleGenerate = (text) => {
+    setDocText(text);
     setScreen('preview');
   };
 
@@ -216,11 +286,11 @@ export default function App() {
   if (screen === 'home') {
     content = <HomeScreen onNavigate={(key) => setScreen(key === 'createDoc' ? 'createDoc' : 'home')} />;
   } else if (screen === 'createDoc') {
-    content = <CreateDocumentScreen onNavigate={setScreen} onBack={goHome} />;
-  } else if (screen === 'loiForm') {
-    content = <LoiFormScreen onGenerate={handleGenerate} onBack={() => setScreen('createDoc')} />;
+    content = <CreateDocumentScreen onSelectDoc={handleSelectDoc} onBack={goHome} />;
+  } else if (screen === 'docForm') {
+    content = <DocFormScreen docKey={selectedDoc} onGenerate={handleGenerate} onBack={() => setScreen('createDoc')} />;
   } else if (screen === 'preview') {
-    content = <DocumentPreviewScreen text={docText} onBack={() => setScreen('loiForm')} />;
+    content = <DocumentPreviewScreen text={docText} onBack={() => setScreen('docForm')} />;
   }
 
   return (
